@@ -1,0 +1,17 @@
+{
+  "name": "trafotron-backend",
+  "version": "1.0.0",
+  "description": "Backend do TRAFOTRON - controle de horas extras",
+  "main": "server.js",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "pg": "^8.11.5",
+    "dotenv": "^16.4.5"
+  }
+}
