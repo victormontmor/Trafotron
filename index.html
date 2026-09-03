@@ -1,0 +1,2470 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TRAFOTRON — Controle de Horas Extras</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=IBM+Plex+Mono:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  :root{
+    --red-700:#970C22;
+    --red-600:#C8102E;
+    --red-500:#E11F3C;
+    --white:#FFFFFF;
+    --off-white:#F7F5F2;
+    --ink:#1A1714;
+    --ink-soft:#2B2622;
+    --gray:#7A716C;
+    --line:#E7E1DB;
+    --radius:12px;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;}
+  html,body{
+    background:var(--off-white);
+    color:var(--ink);
+    font-family:'Inter',sans-serif;
+    min-height:100vh;
+  }
+  .mono{font-family:'IBM Plex Mono',monospace;}
+
+  /* hazard stripe signature element — subtle animated current */
+  .hazard{
+    height:10px;
+    width:100%;
+    background:repeating-linear-gradient(
+      135deg,
+      var(--red-600) 0px, var(--red-600) 16px,
+      var(--white) 16px, var(--white) 32px
+    );
+    background-size:200% 200%;
+    animation:flow 14s linear infinite;
+  }
+  .hazard.thin{height:6px;}
+  @keyframes flow{
+    0%{background-position:0 0;}
+    100%{background-position:200px 0;}
+  }
+  @media (prefers-reduced-motion:reduce){
+    .hazard{animation:none;}
+  }
+
+  /* ---------- LOGIN ---------- */
+  #login-screen{
+    min-height:100vh;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    padding:24px;
+  }
+  .login-card{
+    width:100%;
+    max-width:380px;
+    background:var(--white);
+    border-radius:var(--radius);
+    overflow:hidden;
+    box-shadow:0 20px 50px -20px rgba(151,12,34,0.35);
+    border:1px solid var(--line);
+  }
+  .login-body{padding:36px 32px 32px;}
+  .brand-mark{
+    display:flex;
+    align-items:baseline;
+    gap:2px;
+    font-family:'Archivo Black',sans-serif;
+    font-size:28px;
+    letter-spacing:-0.5px;
+    margin:0 0 4px;
+  }
+  .brand-mark .trafo{color:var(--ink);}
+  .brand-mark .tron{color:var(--red-600);}
+  .login-sub{
+    color:var(--gray);
+    font-size:13px;
+    margin:0 0 28px;
+    letter-spacing:0.02em;
+  }
+  .field-label{
+    display:block;
+    font-size:11px;
+    font-weight:600;
+    text-transform:uppercase;
+    letter-spacing:0.08em;
+    color:var(--gray);
+    margin-bottom:8px;
+  }
+  input[type=password], input[type=text], input[type=number], input[type=date], input[type=search], select{
+    width:100%;
+    padding:12px 14px;
+    border:1.5px solid var(--line);
+    border-radius:8px;
+    font-size:15px;
+    font-family:'Inter',sans-serif;
+    color:var(--ink);
+    background:var(--off-white);
+    transition:border-color .15s ease;
+  }
+  select{cursor:pointer;}
+  input:focus, select:focus{
+    outline:none;
+    border-color:var(--red-600);
+    background:var(--white);
+  }
+  .btn{
+    appearance:none;
+    border:none;
+    cursor:pointer;
+    font-family:'Inter',sans-serif;
+    font-weight:700;
+    font-size:14px;
+    letter-spacing:0.02em;
+    border-radius:8px;
+    padding:13px 20px;
+    transition:transform .1s ease, box-shadow .15s ease, background .15s ease;
+  }
+  .btn:active{transform:translateY(1px);}
+  .btn-primary{
+    background:var(--red-600);
+    color:var(--white);
+    width:100%;
+    margin-top:20px;
+  }
+  .btn-primary:hover{background:var(--red-700);}
+  .login-error{
+    color:var(--red-600);
+    font-size:13px;
+    margin-top:14px;
+    display:none;
+    font-weight:600;
+  }
+  .login-hint{
+    color:var(--gray);
+    font-size:12px;
+    margin-top:14px;
+    line-height:1.5;
+  }
+
+  /* ---------- DASHBOARD SHELL ---------- */
+  #app-screen{display:none;}
+  header.top{
+    background:var(--ink);
+    color:var(--white);
+    padding:20px 32px;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:16px;
+    flex-wrap:wrap;
+  }
+  header.top .brand-mark{font-size:22px;margin:0;}
+  header.top .brand-mark .trafo{color:var(--white);}
+  .header-actions{display:flex;align-items:center;gap:10px;}
+  .header-greeting{
+    font-size:13px;
+    color:var(--gray-light, #b8b3ad);
+    font-weight:600;
+    margin-right:4px;
+    white-space:nowrap;
+  }
+  .logout-btn{
+    background:transparent;
+    border:1.5px solid rgba(255,255,255,0.3);
+    color:var(--white);
+    padding:9px 16px;
+    font-size:13px;
+    font-weight:600;
+    border-radius:8px;
+    cursor:pointer;
+  }
+  .logout-btn:hover{border-color:var(--red-500);color:var(--red-500);}
+
+  .btn-export{
+    background:var(--red-600);
+    color:var(--white);
+    padding:9px 18px;
+    font-size:13px;
+    display:inline-flex;
+    align-items:center;
+    gap:8px;
+  }
+  .btn-export:hover{background:var(--red-500);}
+  .btn-export svg{width:15px;height:15px;flex-shrink:0;}
+
+  main{
+    max-width:1080px;
+    margin:0 auto;
+    padding:36px 24px 80px;
+  }
+
+  /* ---------- BREAKER-STYLE TAB NAV ---------- */
+  .breaker-panel{
+    display:flex;
+    gap:2px;
+    background:var(--ink);
+    border-radius:var(--radius);
+    padding:6px;
+    margin-bottom:28px;
+    box-shadow:inset 0 2px 6px rgba(0,0,0,0.35);
+  }
+  .breaker-switch{
+    flex:1;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    gap:10px;
+    padding:14px 18px;
+    border:none;
+    background:transparent;
+    color:rgba(255,255,255,0.55);
+    font-family:'Inter',sans-serif;
+    font-weight:700;
+    font-size:13px;
+    letter-spacing:0.08em;
+    text-transform:uppercase;
+    border-radius:8px;
+    cursor:pointer;
+    transition:background .15s ease, color .15s ease;
+  }
+  .breaker-switch .led{
+    width:8px;height:8px;border-radius:50%;
+    background:rgba(255,255,255,0.25);
+    transition:background .15s ease, box-shadow .15s ease;
+  }
+  .breaker-switch.active{
+    background:var(--white);
+    color:var(--ink);
+  }
+  .breaker-switch.active .led{
+    background:var(--red-600);
+    box-shadow:0 0 8px 2px rgba(200,16,46,0.7);
+  }
+  .breaker-switch:not(.active):hover{color:rgba(255,255,255,0.85);}
+
+  .tab-view{display:none;animation:fadeIn .25s ease;}
+  .tab-view.active{display:block;}
+  @keyframes fadeIn{
+    from{opacity:0;transform:translateY(4px);}
+    to{opacity:1;transform:translateY(0);}
+  }
+
+  /* ---------- STAT CARDS ---------- */
+  .summary-row{
+    display:grid;
+    grid-template-columns:repeat(auto-fit,minmax(190px,1fr));
+    gap:16px;
+    margin-bottom:28px;
+  }
+  .stat-card{
+    background:var(--white);
+    border:1px solid var(--line);
+    border-radius:var(--radius);
+    padding:20px 22px;
+    position:relative;
+    overflow:hidden;
+    transition:transform .15s ease, box-shadow .15s ease;
+  }
+  .stat-card:hover{transform:translateY(-2px);box-shadow:0 10px 24px -14px rgba(26,23,20,0.25);}
+  .stat-card::before{
+    content:"";
+    position:absolute;
+    top:0;left:0;right:0;height:4px;
+    background:var(--red-600);
+  }
+  .stat-card.highlight{
+    background:var(--red-600);
+    border-color:var(--red-600);
+  }
+  .stat-card.highlight::before{background:var(--ink);}
+  .stat-card.highlight .stat-label{color:rgba(255,255,255,0.75);}
+  .stat-card.highlight .stat-value{color:var(--white);}
+  .stat-label{
+    font-size:11px;
+    text-transform:uppercase;
+    letter-spacing:0.08em;
+    color:var(--gray);
+    font-weight:600;
+    margin-bottom:8px;
+  }
+  .stat-value{
+    font-family:'IBM Plex Mono',monospace;
+    font-size:28px;
+    font-weight:600;
+    color:var(--ink);
+  }
+
+  /* meter under "horas totais" stat */
+  .meter{
+    display:flex;
+    gap:3px;
+    margin-top:12px;
+  }
+  .meter-seg{
+    flex:1;
+    height:6px;
+    border-radius:2px;
+    background:var(--line);
+  }
+  .meter-seg.on{background:var(--red-600);}
+
+  /* ---------- PANELS ---------- */
+  .panel{
+    background:var(--white);
+    border:1px solid var(--line);
+    border-radius:var(--radius);
+    margin-bottom:28px;
+  }
+  .panel-header{
+    padding:18px 24px;
+    border-bottom:1px solid var(--line);
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:12px;
+    flex-wrap:wrap;
+  }
+  .panel-header h2{
+    font-size:14px;
+    text-transform:uppercase;
+    letter-spacing:0.06em;
+    margin:0;
+    font-weight:700;
+    color:var(--ink);
+  }
+  .panel-hint{
+    font-size:12px;
+    color:var(--gray);
+    margin:2px 0 0;
+  }
+  .panel-hint strong{color:var(--red-600);font-family:'IBM Plex Mono',monospace;}
+  .panel-body{padding:22px 24px;}
+
+  .form-grid{
+    display:grid;
+    grid-template-columns:2fr 1fr 1fr auto;
+    gap:14px;
+    align-items:end;
+  }
+  @media (max-width:720px){
+    .form-grid{grid-template-columns:1fr 1fr;}
+    .summary-row{grid-template-columns:1fr;}
+    .employee-grid{grid-template-columns:1fr !important;}
+  }
+  .btn-add{
+    background:var(--ink);
+    color:var(--white);
+    padding:12px 22px;
+    white-space:nowrap;
+  }
+  .btn-add:hover{background:var(--red-600);}
+
+  table{
+    width:100%;
+    border-collapse:collapse;
+    font-size:14px;
+  }
+  thead th{
+    text-align:left;
+    font-size:11px;
+    text-transform:uppercase;
+    letter-spacing:0.06em;
+    color:var(--gray);
+    font-weight:700;
+    padding:10px 12px;
+    border-bottom:2px solid var(--ink);
+  }
+  tbody td{
+    padding:13px 12px;
+    border-bottom:1px solid var(--line);
+    vertical-align:middle;
+  }
+  tbody tr:hover{background:var(--off-white);}
+  .hours-badge{
+    font-family:'IBM Plex Mono',monospace;
+    font-weight:600;
+    background:#FCE9EC;
+    color:var(--red-700);
+    padding:4px 10px;
+    border-radius:6px;
+    font-size:13px;
+  }
+  .del-btn{
+    background:transparent;
+    border:1.5px solid var(--line);
+    color:var(--gray);
+    padding:6px 12px;
+    font-size:12px;
+    border-radius:6px;
+    cursor:pointer;
+    font-weight:600;
+  }
+  .del-btn:hover{border-color:var(--red-600);color:var(--red-600);}
+
+  /* ---------- SEARCH ---------- */
+  .search-wrap{
+    position:relative;
+    max-width:320px;
+    width:100%;
+  }
+  .search-wrap svg{
+    position:absolute;
+    left:12px;top:50%;
+    transform:translateY(-50%);
+    width:15px;height:15px;
+    color:var(--gray);
+    pointer-events:none;
+  }
+  .search-wrap input{padding-left:36px;}
+
+  /* ---------- EMPLOYEE CARDS ---------- */
+  .employee-grid{
+    display:grid;
+    grid-template-columns:repeat(2,1fr);
+    gap:14px;
+  }
+  .employee-card{
+    border:1px solid var(--line);
+    border-radius:var(--radius);
+    padding:18px;
+    display:flex;
+    gap:14px;
+    align-items:flex-start;
+    transition:transform .15s ease, box-shadow .15s ease, border-color .15s ease;
+  }
+  .employee-card:hover{
+    transform:translateY(-2px);
+    box-shadow:0 10px 24px -14px rgba(26,23,20,0.25);
+    border-color:var(--red-600);
+  }
+  .avatar{
+    flex-shrink:0;
+    width:44px;height:44px;
+    border-radius:50%;
+    background:var(--ink);
+    color:var(--white);
+    display:flex;align-items:center;justify-content:center;
+    font-family:'Archivo Black',sans-serif;
+    font-size:15px;
+  }
+  .employee-info{flex:1;min-width:0;}
+  .employee-name{
+    font-weight:700;
+    font-size:15px;
+    margin:0 0 6px;
+    overflow:hidden;
+    text-overflow:ellipsis;
+    white-space:nowrap;
+  }
+  .employee-name-clickable{cursor:pointer;}
+  .employee-name-clickable:hover{color:var(--red-600);text-decoration:underline;}
+  .employee-meta{
+    display:flex;
+    gap:14px;
+    font-size:12px;
+    color:var(--gray);
+    margin-bottom:10px;
+    flex-wrap:wrap;
+  }
+  .employee-meta strong{color:var(--ink);font-family:'IBM Plex Mono',monospace;}
+  .rank-bar-track{
+    height:6px;
+    background:var(--line);
+    border-radius:3px;
+    overflow:hidden;
+  }
+  .rank-bar-fill{
+    height:100%;
+    background:linear-gradient(90deg, var(--red-700), var(--red-600));
+    border-radius:3px;
+  }
+
+  .empty-state{
+    padding:48px 24px;
+    text-align:center;
+    color:var(--gray);
+  }
+  .empty-state .hazard{
+    max-width:120px;
+    margin:0 auto 18px;
+    height:8px;
+    border-radius:4px;
+  }
+  .empty-state p{margin:0;font-size:14px;}
+
+  footer.note{
+    text-align:center;
+    color:var(--gray);
+    font-size:12px;
+    padding:20px 0 0;
+  }
+
+  /* ---------- STATUS BADGES ---------- */
+  .status-badge{
+    font-family:'IBM Plex Mono',monospace;
+    font-weight:600;
+    padding:4px 10px;
+    border-radius:6px;
+    font-size:12px;
+    display:inline-block;
+    white-space:nowrap;
+  }
+  .status-badge.pending{background:#FCE9EC;color:var(--red-700);}
+  .status-badge.paid{background:#E4F3E8;color:#1E7A3D;}
+
+  .btn-zerar{
+    background:transparent;
+    border:1.5px solid var(--red-600);
+    color:var(--red-600);
+    padding:9px 16px;
+    font-size:13px;
+  }
+  .btn-zerar:hover{background:var(--red-600);color:var(--white);}
+  .btn-zerar-mini{
+    background:transparent;
+    border:1.5px solid var(--line);
+    color:var(--gray);
+    padding:5px 10px;
+    font-size:11px;
+    border-radius:6px;
+    cursor:pointer;
+    font-weight:600;
+    white-space:nowrap;
+  }
+  .btn-zerar-mini:hover{border-color:var(--red-600);color:var(--red-600);}
+
+  /* ---------- MONTHS TAB ---------- */
+  .month-grid{
+    display:grid;
+    grid-template-columns:repeat(auto-fill,minmax(220px,1fr));
+    gap:14px;
+  }
+  .month-card{
+    border:1px solid var(--line);
+    border-radius:var(--radius);
+    padding:18px;
+    cursor:pointer;
+    text-align:left;
+    background:var(--white);
+    font-family:'Inter',sans-serif;
+    transition:transform .15s ease, box-shadow .15s ease, border-color .15s ease;
+  }
+  .month-card:hover{
+    transform:translateY(-2px);
+    box-shadow:0 10px 24px -14px rgba(26,23,20,0.25);
+    border-color:var(--red-600);
+  }
+  .month-card .month-name{
+    font-family:'Archivo Black',sans-serif;
+    font-size:17px;
+    margin:0 0 8px;
+    text-transform:capitalize;
+  }
+  .month-card .month-meta{
+    display:flex;
+    gap:14px;
+    font-size:12px;
+    color:var(--gray);
+    flex-wrap:wrap;
+  }
+  .month-card .month-meta strong{color:var(--ink);font-family:'IBM Plex Mono',monospace;}
+  .month-card .month-pending-tag{
+    display:inline-block;
+    margin-top:10px;
+    font-size:11px;
+    font-weight:700;
+    color:var(--red-600);
+  }
+  .month-card .month-pending-tag.none{color:#1E7A3D;}
+
+  .back-link{
+    background:transparent;
+    border:none;
+    color:var(--gray);
+    font-family:'Inter',sans-serif;
+    font-weight:600;
+    font-size:13px;
+    cursor:pointer;
+    padding:0;
+    display:inline-flex;
+    align-items:center;
+    gap:6px;
+  }
+  .back-link:hover{color:var(--red-600);}
+  .back-link svg{width:16px;height:16px;}
+
+  /* ---------- CADASTRO LIST ---------- */
+  .roster-list{display:flex;flex-direction:column;gap:0;}
+  .roster-row{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:12px;
+    padding:14px 4px;
+    border-bottom:1px solid var(--line);
+  }
+  .roster-row:last-child{border-bottom:none;}
+  .roster-row .roster-name{
+    display:flex;
+    align-items:center;
+    gap:12px;
+    font-weight:600;
+    font-size:14px;
+  }
+  .roster-row .avatar{width:34px;height:34px;font-size:12px;}
+
+  /* ---------- EMPLOYEE DETAIL (grouped by month) ---------- */
+  .month-group{margin-bottom:24px;}
+  .month-group:last-child{margin-bottom:0;}
+  .month-group-header{
+    display:flex;
+    align-items:baseline;
+    justify-content:space-between;
+    gap:12px;
+    padding-bottom:10px;
+    margin-bottom:10px;
+    border-bottom:2px solid var(--ink);
+    flex-wrap:wrap;
+  }
+  .month-group-header h3{
+    font-family:'Archivo Black',sans-serif;
+    font-size:15px;
+    margin:0;
+    text-transform:capitalize;
+  }
+  .month-group-header .month-group-total{
+    font-family:'IBM Plex Mono',monospace;
+    font-size:13px;
+    color:var(--gray);
+  }
+  .month-group-header .month-group-total strong{color:var(--ink);}
+
+  /* ---------- MODAL (substitui confirm() nativo) ---------- */
+  .modal-overlay{
+    position:fixed; inset:0;
+    background:rgba(26,23,20,0.55);
+    display:none;
+    align-items:center;
+    justify-content:center;
+    z-index:1000;
+    padding:20px;
+  }
+  .modal-overlay.active{display:flex;}
+  .modal-box{
+    background:var(--white);
+    border-radius:var(--radius);
+    max-width:420px;
+    width:100%;
+    overflow:hidden;
+    box-shadow:0 30px 60px -20px rgba(0,0,0,0.4);
+  }
+  .modal-body{padding:28px 26px 24px;}
+  .modal-body p{margin:0;font-size:14px;line-height:1.55;color:var(--ink-soft);}
+  .modal-actions{
+    display:flex; gap:10px; margin-top:22px;
+  }
+  .modal-actions .btn{flex:1;padding:11px 16px;font-size:13px;}
+  .btn-secondary{background:var(--off-white);color:var(--ink);border:1.5px solid var(--line);}
+  .btn-secondary:hover{background:var(--line);}
+  .btn-danger{background:var(--red-600);color:var(--white);}
+  .btn-danger:hover{background:var(--red-700);}
+
+  /* ---------- TOASTS ---------- */
+  #toast-stack{
+    position:fixed;
+    top:20px; right:20px;
+    z-index:1100;
+    display:flex;
+    flex-direction:column;
+    gap:10px;
+    max-width:340px;
+  }
+  .toast{
+    background:var(--ink);
+    color:var(--white);
+    padding:14px 18px;
+    border-radius:8px;
+    font-size:13px;
+    font-weight:600;
+    box-shadow:0 12px 30px -10px rgba(0,0,0,0.4);
+    animation:toastIn .2s ease;
+    border-left:4px solid var(--red-600);
+  }
+  .toast.success{border-left-color:#2E9E52;}
+  .toast.error{border-left-color:var(--red-600);}
+  @keyframes toastIn{
+    from{opacity:0;transform:translateX(20px);}
+    to{opacity:1;transform:translateX(0);}
+  }
+
+  /* ---------- SPINNER ---------- */
+  .spinner{
+    width:18px;height:18px;
+    border:2.5px solid var(--line);
+    border-top-color:var(--red-600);
+    border-radius:50%;
+    display:inline-block;
+    animation:spin .7s linear infinite;
+    vertical-align:middle;
+  }
+  @keyframes spin{to{transform:rotate(360deg);}}
+  .loading-row{display:flex;align-items:center;justify-content:center;gap:10px;padding:40px 0;color:var(--gray);font-size:13px;}
+  .btn[disabled]{opacity:0.6;cursor:not-allowed;}
+
+  /* ---------- PAGINAÇÃO / BUSCA LANÇAMENTOS ---------- */
+  .records-toolbar{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:12px;
+    padding:16px 24px;
+    border-bottom:1px solid var(--line);
+    flex-wrap:wrap;
+  }
+  .pagination{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    padding:16px 24px;
+    font-size:12px;
+    color:var(--gray);
+  }
+  .pagination button{
+    background:var(--off-white);
+    border:1.5px solid var(--line);
+    color:var(--ink);
+    padding:6px 12px;
+    border-radius:6px;
+    font-size:12px;
+    font-weight:600;
+    cursor:pointer;
+  }
+  .pagination button:hover:not([disabled]){border-color:var(--red-600);color:var(--red-600);}
+  .pagination button[disabled]{opacity:0.4;cursor:not-allowed;}
+
+  /* ---------- MOTIVO / RAZÃO ---------- */
+  textarea{
+    width:100%;
+    padding:12px 14px;
+    border:1.5px solid var(--line);
+    border-radius:8px;
+    font-size:14px;
+    font-family:'Inter',sans-serif;
+    color:var(--ink);
+    background:var(--off-white);
+    resize:vertical;
+    min-height:44px;
+  }
+  textarea:focus{outline:none;border-color:var(--red-600);background:var(--white);}
+  .reason-cell{
+    max-width:180px;
+    overflow:hidden;
+    text-overflow:ellipsis;
+    white-space:nowrap;
+    color:var(--gray);
+    font-size:13px;
+  }
+  .row-actions{display:flex;gap:6px;flex-wrap:wrap;}
+  .edit-btn{
+    background:transparent;
+    border:1.5px solid var(--line);
+    color:var(--gray);
+    padding:6px 12px;
+    font-size:12px;
+    border-radius:6px;
+    cursor:pointer;
+    font-weight:600;
+  }
+  .edit-btn:hover{border-color:var(--ink);color:var(--ink);}
+  .editing-banner{
+    background:#FFF6E5;
+    border:1.5px solid #E8B84B;
+    color:#7A5A00;
+    padding:10px 14px;
+    border-radius:8px;
+    font-size:13px;
+    font-weight:600;
+    margin-bottom:14px;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:10px;
+    flex-wrap:wrap;
+  }
+  .editing-banner button{
+    background:transparent;
+    border:none;
+    color:#7A5A00;
+    text-decoration:underline;
+    cursor:pointer;
+    font-weight:700;
+    font-size:12px;
+  }
+
+  /* ---------- ABA ATIVIDADE (log de auditoria) ---------- */
+  .audit-list{display:flex;flex-direction:column;}
+  .audit-row{
+    display:flex;
+    gap:14px;
+    padding:14px 4px;
+    border-bottom:1px solid var(--line);
+    align-items:flex-start;
+  }
+  .audit-row:last-child{border-bottom:none;}
+  .audit-dot{
+    width:8px;height:8px;
+    border-radius:50%;
+    background:var(--red-600);
+    margin-top:6px;
+    flex-shrink:0;
+  }
+  .audit-main{flex:1;min-width:0;}
+  .audit-action{font-weight:700;font-size:13px;color:var(--ink);}
+  .audit-details{font-size:13px;color:var(--gray);margin-top:2px;}
+  .audit-meta{
+    font-size:11px;
+    color:var(--gray);
+    text-align:right;
+    white-space:nowrap;
+    flex-shrink:0;
+  }
+  .audit-meta .audit-actor{
+    display:block;
+    font-weight:700;
+    color:var(--ink);
+    font-family:'IBM Plex Mono',monospace;
+    margin-bottom:2px;
+  }
+</style>
+</head>
+<body>
+
+<!-- LOGIN SCREEN -->
+<div id="login-screen">
+  <div class="login-card">
+    <div class="hazard"></div>
+    <div class="login-body">
+      <p class="brand-mark"><span class="trafo">TRAFO</span><span class="tron">TRON</span></p>
+      <p class="login-sub">Controle de horas extras — acesso restrito</p>
+      <label class="field-label" for="login-username">Usuário</label>
+      <input type="text" id="login-username" placeholder="ex: maria" autocomplete="username" style="margin-bottom:16px;">
+      <label class="field-label" for="pwd">Senha</label>
+      <input type="password" id="pwd" placeholder="••••••••" autocomplete="current-password">
+      <button class="btn btn-primary" id="login-btn" onclick="tryLogin()">Entrar</button>
+      <p class="login-error" id="login-error">Usuário ou senha incorretos.</p>
+      <p class="login-hint">Esqueceu a senha? Peça para outra pessoa com acesso redefinir na aba "Usuários".</p>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL DE CONFIRMAÇÃO -->
+<div class="modal-overlay" id="modal-overlay">
+  <div class="modal-box">
+    <div class="modal-body">
+      <p id="modal-message"></p>
+      <div class="modal-actions">
+        <button class="btn btn-secondary" id="modal-cancel">Cancelar</button>
+        <button class="btn btn-danger" id="modal-confirm">Confirmar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL DE ENTRADA DE TEXTO (ex: nova senha) -->
+<div class="modal-overlay" id="prompt-overlay">
+  <div class="modal-box">
+    <div class="modal-body">
+      <p id="prompt-message"></p>
+      <input type="password" id="prompt-input" style="margin-top:14px;" autocomplete="new-password">
+      <div class="modal-actions">
+        <button class="btn btn-secondary" id="prompt-cancel">Cancelar</button>
+        <button class="btn btn-primary" id="prompt-confirm" style="margin-top:0;">Confirmar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- TOASTS -->
+<div id="toast-stack"></div>
+
+<!-- APP SCREEN -->
+<div id="app-screen">
+  <header class="top">
+    <p class="brand-mark"><span class="trafo">TRAFO</span><span class="tron">TRON</span></p>
+    <div class="header-actions">
+      <span id="header-greeting" class="header-greeting"></span>
+      <button class="btn btn-export" onclick="exportExcel()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M5 21h14"/></svg>
+        Baixar planilha
+      </button>
+      <button class="logout-btn" onclick="logout()">Sair</button>
+    </div>
+  </header>
+  <div class="hazard thin"></div>
+
+  <main>
+    <div class="summary-row">
+      <div class="stat-card">
+        <div class="stat-label">Total de registros</div>
+        <div class="stat-value mono" id="stat-count">0</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Horas extras totais</div>
+        <div class="stat-value mono" id="stat-hours">0h</div>
+        <div class="meter" id="stat-meter"></div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Funcionários únicos</div>
+        <div class="stat-value mono" id="stat-people">0</div>
+      </div>
+      <div class="stat-card highlight">
+        <div class="stat-label">Total a pagar</div>
+        <div class="stat-value mono" id="stat-owed">R$ 0,00</div>
+      </div>
+    </div>
+
+    <!-- BREAKER TAB NAV -->
+    <div class="breaker-panel">
+      <button class="breaker-switch active" id="tab-btn-lancamentos" onclick="switchTab('lancamentos')">
+        <span class="led"></span> Lançamentos
+      </button>
+      <button class="breaker-switch" id="tab-btn-funcionarios" onclick="switchTab('funcionarios')">
+        <span class="led"></span> Funcionários
+      </button>
+      <button class="breaker-switch" id="tab-btn-meses" onclick="switchTab('meses')">
+        <span class="led"></span> Meses
+      </button>
+      <button class="breaker-switch" id="tab-btn-cadastro" onclick="switchTab('cadastro')">
+        <span class="led"></span> Cadastro
+      </button>
+      <button class="breaker-switch" id="tab-btn-usuarios" onclick="switchTab('usuarios')" style="display:none;">
+        <span class="led"></span> Usuários
+      </button>
+      <button class="breaker-switch" id="tab-btn-atividade" onclick="switchTab('atividade')" style="display:none;">
+        <span class="led"></span> Atividade
+      </button>
+    </div>
+
+    <!-- TAB: LANÇAMENTOS -->
+    <div class="tab-view active" id="tab-lancamentos">
+      <div class="panel">
+        <div class="panel-header">
+          <div>
+            <h2 id="form-title">Adicionar hora extra</h2>
+            <p class="panel-hint">Jornada padrão até <strong>17:18</strong> · <strong>R$ 20</strong> por hora extra</p>
+          </div>
+        </div>
+        <div class="panel-body">
+          <div class="editing-banner" id="editing-banner" style="display:none;">
+            <span>✏️ Editando um lançamento pendente.</span>
+            <button onclick="cancelEdit()">Cancelar edição</button>
+          </div>
+          <div class="form-grid">
+            <div>
+              <label class="field-label" for="in-name">Funcionário</label>
+              <select id="in-name">
+                <option value="">Selecione...</option>
+              </select>
+            </div>
+            <div>
+              <label class="field-label" for="in-exit">Horário de saída</label>
+              <input type="time" id="in-exit">
+            </div>
+            <div>
+              <label class="field-label" for="in-date">Data</label>
+              <input type="date" id="in-date">
+            </div>
+            <button class="btn btn-add" id="submit-btn" onclick="addRecord()">Adicionar</button>
+          </div>
+          <div style="margin-top:14px;">
+            <label class="field-label" for="in-reason">Motivo (opcional)</label>
+            <textarea id="in-reason" placeholder="Ex: fechamento de mês, cobertura de turno..." rows="1"></textarea>
+          </div>
+          <p class="panel-hint" id="preview-hint" style="margin-top:12px;"></p>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-header">
+          <div>
+            <h2>Registros de hora extra pendentes</h2>
+            <p class="panel-hint">Assim que as horas forem pagas, use "Zerar horas" para marcá-las como quitadas.</p>
+          </div>
+          <button class="btn btn-zerar" onclick="zerarHoras()">Zerar todas as horas</button>
+        </div>
+        <div class="records-toolbar">
+          <div class="search-wrap" style="max-width:280px;">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+            <input type="search" id="records-search" placeholder="Pesquisar por nome..." oninput="onRecordsSearch()">
+          </div>
+        </div>
+        <div id="table-wrap"></div>
+        <div class="pagination" id="records-pagination" style="display:none;"></div>
+      </div>
+    </div>
+
+    <!-- TAB: FUNCIONÁRIOS -->
+    <div class="tab-view" id="tab-funcionarios">
+      <div class="panel">
+        <div class="panel-header">
+          <div>
+            <h2 id="funcionarios-title">Registro de funcionários</h2>
+            <p class="panel-hint" id="funcionarios-hint" style="display:none;"></p>
+          </div>
+          <div class="search-wrap" id="employee-search-wrap">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+            <input type="search" id="employee-search" placeholder="Pesquisar funcionário..." oninput="renderEmployees()">
+          </div>
+        </div>
+        <div class="panel-body" id="employee-wrap"></div>
+      </div>
+    </div>
+
+    <!-- TAB: MESES -->
+    <div class="tab-view" id="tab-meses">
+      <div class="panel">
+        <div class="panel-header" id="meses-header">
+          <div>
+            <h2 id="meses-title">Histórico por mês</h2>
+            <p class="panel-hint" id="meses-hint">Todo registro fica salvo aqui, mesmo depois de zerar as horas.</p>
+          </div>
+        </div>
+        <div class="panel-body" id="meses-wrap"></div>
+      </div>
+    </div>
+
+    <!-- TAB: CADASTRO DE FUNCIONÁRIOS -->
+    <div class="tab-view" id="tab-cadastro">
+      <div class="panel">
+        <div class="panel-header">
+          <div>
+            <h2>Cadastrar funcionário</h2>
+            <p class="panel-hint">Cadastre aqui todo mundo que pode ter hora extra. Depois, na aba Lançamentos, é só selecionar o nome e adicionar as horas.</p>
+          </div>
+        </div>
+        <div class="panel-body">
+          <div class="form-grid" style="grid-template-columns:1fr auto;">
+            <div>
+              <label class="field-label" for="in-employee-name">Nome completo</label>
+              <input type="text" id="in-employee-name" placeholder="Nome do funcionário" autocomplete="off">
+            </div>
+            <button class="btn btn-add" onclick="addEmployee()">Cadastrar</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-header">
+          <h2>Funcionários cadastrados</h2>
+        </div>
+        <div class="panel-body" id="cadastro-wrap"></div>
+      </div>
+    </div>
+
+    <!-- TAB: USUÁRIOS DO SISTEMA (contas de login) -->
+    <div class="tab-view" id="tab-usuarios">
+      <div class="panel">
+        <div class="panel-header">
+          <div>
+            <h2>Criar conta de acesso</h2>
+            <p class="panel-hint">Cada pessoa deve ter seu próprio usuário e senha para entrar no sistema.</p>
+          </div>
+        </div>
+        <div class="panel-body">
+          <div class="form-grid">
+            <div>
+              <label class="field-label" for="in-user-name">Nome completo</label>
+              <input type="text" id="in-user-name" placeholder="Nome da pessoa" autocomplete="off">
+            </div>
+            <div>
+              <label class="field-label" for="in-user-username">Usuário</label>
+              <input type="text" id="in-user-username" placeholder="ex: maria" autocomplete="off">
+            </div>
+            <div>
+              <label class="field-label" for="in-user-password">Senha</label>
+              <input type="password" id="in-user-password" placeholder="mínimo 4 caracteres" autocomplete="new-password">
+            </div>
+            <button class="btn btn-add" onclick="addUser()">Criar conta</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-header">
+          <h2>Contas cadastradas</h2>
+        </div>
+        <div class="panel-body" id="usuarios-wrap"></div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-header">
+          <div>
+            <h2>Minha conta</h2>
+            <p class="panel-hint">Troque sua própria senha (precisa confirmar a senha atual).</p>
+          </div>
+        </div>
+        <div class="panel-body">
+          <div class="form-grid" style="grid-template-columns:1fr 1fr auto;">
+            <div>
+              <label class="field-label" for="in-current-password">Senha atual</label>
+              <input type="password" id="in-current-password" autocomplete="current-password">
+            </div>
+            <div>
+              <label class="field-label" for="in-new-password">Nova senha</label>
+              <input type="password" id="in-new-password" placeholder="mínimo 4 caracteres" autocomplete="new-password">
+            </div>
+            <button class="btn btn-add" onclick="changeOwnPassword()">Trocar senha</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB: ATIVIDADE (log de auditoria) -->
+    <div class="tab-view" id="tab-atividade">
+      <div class="panel">
+        <div class="panel-header">
+          <div>
+            <h2>Atividade recente</h2>
+            <p class="panel-hint">Quem fez o quê e quando — login, lançamentos, edições, remoções e horas zeradas.</p>
+          </div>
+        </div>
+        <div class="panel-body" id="atividade-wrap"></div>
+      </div>
+    </div>
+
+    <footer class="note">Dados salvos automaticamente e compartilhados entre acessos deste app.</footer>
+  </main>
+</div>
+
+<script>
+const BASE_URL = '';  // mesmo servidor que serve esta página
+let BASE_TIME = '17:18';          // fim da jornada padrão (valor padrão até carregar do servidor)
+let RATE_PER_HOUR = 20;           // R$ por hora extra (valor padrão até carregar do servidor)
+let records = [];
+let employees = [];
+let users = [];
+let currentSession = null;        // { username, displayName } da pessoa logada
+let editingId = null;             // id do lançamento sendo editado (null = criando um novo)
+let recordsSearchQuery = '';
+let recordsPage = 1;
+const RECORDS_PER_PAGE = 12;
+
+function $(id){return document.getElementById(id);}
+
+// ---------- TOASTS (substitui alert()) ----------
+function showToast(message, type){
+  const stack = $('toast-stack');
+  const el = document.createElement('div');
+  el.className = 'toast' + (type ? ' ' + type : '');
+  el.textContent = message;
+  stack.appendChild(el);
+  setTimeout(() => {
+    el.style.transition = 'opacity .3s ease';
+    el.style.opacity = '0';
+    setTimeout(() => el.remove(), 300);
+  }, 4200);
+}
+
+// ---------- MODAL DE CONFIRMAÇÃO (substitui confirm()) ----------
+function showConfirm(message){
+  return new Promise(resolve => {
+    const overlay = $('modal-overlay');
+    $('modal-message').textContent = message;
+    overlay.classList.add('active');
+
+    function cleanup(result){
+      overlay.classList.remove('active');
+      confirmBtn.removeEventListener('click', onConfirm);
+      cancelBtn.removeEventListener('click', onCancel);
+      resolve(result);
+    }
+    const confirmBtn = $('modal-confirm');
+    const cancelBtn = $('modal-cancel');
+    function onConfirm(){ cleanup(true); }
+    function onCancel(){ cleanup(false); }
+    confirmBtn.addEventListener('click', onConfirm);
+    cancelBtn.addEventListener('click', onCancel);
+  });
+}
+
+// ---------- MODAL DE ENTRADA DE TEXTO (senha nova, etc.) ----------
+function showPrompt(message, placeholder){
+  return new Promise(resolve => {
+    const overlay = $('prompt-overlay');
+    $('prompt-message').textContent = message;
+    const input = $('prompt-input');
+    input.value = '';
+    input.placeholder = placeholder || '';
+    overlay.classList.add('active');
+    setTimeout(() => input.focus(), 50);
+
+    function cleanup(result){
+      overlay.classList.remove('active');
+      confirmBtn.removeEventListener('click', onConfirm);
+      cancelBtn.removeEventListener('click', onCancel);
+      input.removeEventListener('keydown', onKeydown);
+      resolve(result);
+    }
+    const confirmBtn = $('prompt-confirm');
+    const cancelBtn = $('prompt-cancel');
+    function onConfirm(){ cleanup(input.value || null); }
+    function onCancel(){ cleanup(null); }
+    function onKeydown(e){ if(e.key === 'Enter') onConfirm(); }
+    confirmBtn.addEventListener('click', onConfirm);
+    cancelBtn.addEventListener('click', onCancel);
+    input.addEventListener('keydown', onKeydown);
+  });
+}
+async function apiFetch(url, options){
+  const res = await fetch(BASE_URL + url, options);
+  if(res.status === 401){
+    showToast('Sua sessão expirou. Faça login de novo.', 'error');
+    showLoginScreen();
+    throw new Error('unauthenticated');
+  }
+  return res;
+}
+
+function showLoginScreen(){
+  $('app-screen').style.display = 'none';
+  $('login-screen').style.display = 'flex';
+  $('pwd').value = '';
+  $('login-username').value = '';
+}
+
+async function loadConfig(){
+  try{
+    const res = await apiFetch('/api/config');
+    const cfg = await res.json();
+    if(cfg.baseTime) BASE_TIME = cfg.baseTime;
+    if(cfg.ratePerHour) RATE_PER_HOUR = cfg.ratePerHour;
+  }catch(e){
+    console.warn('Não foi possível carregar a configuração do servidor, usando padrão.', e);
+  }
+  const hint = document.querySelector('.panel-hint');
+  if(hint) hint.innerHTML = `Jornada padrão até <strong>${BASE_TIME}</strong> · <strong>R$ ${RATE_PER_HOUR}</strong> por hora extra`;
+}
+
+function timeToMinutes(hhmm){
+  const [h,m] = hhmm.split(':').map(Number);
+  return h*60+m;
+}
+
+// Calcula horas extras a partir do horário de saída, arredondando para a
+// meia hora mais próxima (ex: 17:18 -> 19:30 = 2h e meia). Usada só para a
+// prévia antes de salvar — o valor real é congelado pelo servidor.
+function computeOvertimeHours(exitTime){
+  const diff = timeToMinutes(exitTime) - timeToMinutes(BASE_TIME);
+  if(diff <= 0) return 0;
+  const rawHours = diff / 60;
+  return Math.round(rawHours * 2) / 2;
+}
+
+// horas/valor SEMPRE vêm congelados do servidor (calculados no momento do
+// lançamento), então não mudam retroativamente se a config for alterada depois
+function hoursFor(r){ return Number(r.hours); }
+function valueFor(r){ return Number(r.hours) * Number(r.ratePerHour); }
+
+function formatHoursLabel(v){
+  if(v <= 0) return '0h';
+  const whole = Math.floor(v);
+  const isHalf = (v - whole) >= 0.5;
+  if(!isHalf) return `${whole}h`;
+  if(whole === 0) return 'Meia hora';
+  return `${whole}h e meia`;
+}
+
+function formatCurrency(v){
+  return v.toLocaleString('pt-BR', { style:'currency', currency:'BRL' });
+}
+
+async function checkSession(){
+  try{
+    const res = await fetch(BASE_URL + '/api/session');
+    const data = await res.json();
+    if(data.authenticated){
+      currentSession = { username: data.username, displayName: data.displayName, isAdmin: !!data.isAdmin };
+      $('login-screen').style.display = 'none';
+      $('app-screen').style.display = 'block';
+      updateHeaderGreeting();
+      applyAdminVisibility();
+      await loadConfig();
+      await loadEmployees();
+      await loadRecords();
+    }
+  }catch(e){
+    console.warn('Não foi possível verificar a sessão.', e);
+  }
+}
+
+function updateHeaderGreeting(){
+  const el = $('header-greeting');
+  if(el && currentSession) el.textContent = `Olá, ${currentSession.displayName}`;
+}
+
+// mostra as abas "Usuários" e "Atividade" só para quem é administrador.
+// (o servidor também bloqueia essas rotas pra quem não é admin — isso aqui
+// é só pra não nem mostrar o botão pra quem não pode usar.)
+function applyAdminVisibility(){
+  const isAdmin = !!(currentSession && currentSession.isAdmin);
+  const usersBtn = $('tab-btn-usuarios');
+  const activityBtn = $('tab-btn-atividade');
+  if(usersBtn) usersBtn.style.display = isAdmin ? '' : 'none';
+  if(activityBtn) activityBtn.style.display = isAdmin ? '' : 'none';
+
+  // se por algum motivo uma dessas abas estiver aberta e o usuário não for
+  // admin (ex: sessão trocou), volta pra aba de lançamentos.
+  if(!isAdmin){
+    const openTab = document.querySelector('.tab-view.active');
+    if(openTab && (openTab.id === 'tab-usuarios' || openTab.id === 'tab-atividade')){
+      switchTab('lancamentos');
+    }
+  }
+}
+
+async function tryLogin(){
+  const username = $('login-username').value.trim();
+  const password = $('pwd').value;
+  const btn = $('login-btn');
+
+  if(!username || !password){
+    $('login-error').textContent = 'Preencha usuário e senha.';
+    $('login-error').style.display = 'block';
+    return;
+  }
+
+  btn.disabled = true;
+  btn.textContent = 'Entrando...';
+
+  try{
+    const res = await fetch(BASE_URL + '/api/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, password })
+    });
+    const data = await res.json().catch(() => ({}));
+
+    if(!res.ok){
+      $('login-error').textContent = data.error || 'Não foi possível entrar.';
+      $('login-error').style.display = 'block';
+      return;
+    }
+
+    currentSession = { username: data.username, displayName: data.displayName, isAdmin: !!data.isAdmin };
+    $('login-error').style.display = 'none';
+    $('login-screen').style.display = 'none';
+    $('app-screen').style.display = 'block';
+    updateHeaderGreeting();
+    applyAdminVisibility();
+    await loadConfig();
+    await loadEmployees();
+    await loadRecords();
+  }catch(e){
+    $('login-error').textContent = 'Erro de conexão com o servidor TRAFOTRON.';
+    $('login-error').style.display = 'block';
+  }finally{
+    btn.disabled = false;
+    btn.textContent = 'Entrar';
+  }
+}
+
+async function logout(){
+  try{
+    await fetch(BASE_URL + '/api/logout', { method: 'POST' });
+  }catch(e){ /* ignora falha de rede no logout */ }
+  currentSession = null;
+  showLoginScreen();
+}
+
+function switchTab(tab){
+  // abas de admin: bloqueia a navegação pra quem não é administrador
+  if((tab === 'usuarios' || tab === 'atividade') && !(currentSession && currentSession.isAdmin)){
+    tab = 'lancamentos';
+  }
+  document.querySelectorAll('.tab-view').forEach(el => el.classList.remove('active'));
+  document.querySelectorAll('.breaker-switch').forEach(el => el.classList.remove('active'));
+  $('tab-' + tab).classList.add('active');
+  $('tab-btn-' + tab).classList.add('active');
+  if(tab === 'funcionarios') renderEmployees();
+  if(tab === 'meses') loadMesesList();
+  if(tab === 'cadastro') renderCadastroList();
+  if(tab === 'usuarios') loadUsers();
+  if(tab === 'atividade') loadAuditLog();
+}
+
+async function loadRecords(){
+  const wrap = $('table-wrap');
+  wrap.innerHTML = `<div class="loading-row"><span class="spinner"></span> Carregando registros...</div>`;
+  try{
+    const res = await apiFetch('/api/records');
+    if(!res.ok) throw new Error('Falha ao buscar registros');
+    records = await res.json();
+  }catch(e){
+    if(e.message === 'unauthenticated') return;
+    records = [];
+    showToast('Não foi possível conectar ao servidor TRAFOTRON.', 'error');
+  }
+  render();
+}
+
+async function addRecord(){
+  const name = $('in-name').value.trim();
+  const exitTime = $('in-exit').value;
+  const date = $('in-date').value;
+  const reason = $('in-reason').value.trim();
+
+  if(!name || !exitTime || !date){
+    showToast('Preencha nome, horário de saída e data.', 'error');
+    return;
+  }
+
+  const hours = computeOvertimeHours(exitTime);
+  if(hours <= 0){
+    showToast(`O horário de saída precisa ser depois das ${BASE_TIME} para gerar hora extra.`, 'error');
+    return;
+  }
+
+  const btn = $('submit-btn');
+  btn.disabled = true;
+  btn.textContent = editingId ? 'Salvando...' : 'Adicionando...';
+
+  try{
+    const isEdit = !!editingId;
+    const url = isEdit ? '/api/records/' + editingId : '/api/records';
+    const res = await apiFetch(url, {
+      method: isEdit ? 'PUT' : 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, exitTime, date, reason })
+    });
+    if(!res.ok){
+      const err = await res.json().catch(() => ({}));
+      showToast(err.error || 'Não foi possível salvar o registro.', 'error');
+      return;
+    }
+    const saved = await res.json();
+
+    if(isEdit){
+      records = records.map(r => r.id === saved.id ? saved : r);
+      showToast('Lançamento atualizado.', 'success');
+    } else {
+      records.push(saved);
+      showToast('Hora extra adicionada.', 'success');
+    }
+
+    cancelEdit();
+    render();
+  }catch(e){
+    if(e.message !== 'unauthenticated') showToast('Erro de conexão com o servidor TRAFOTRON.', 'error');
+  }finally{
+    btn.disabled = false;
+    btn.textContent = editingId ? 'Salvar edição' : 'Adicionar';
+  }
+}
+
+function editRecord(id){
+  const record = records.find(r => r.id === id);
+  if(!record) return;
+
+  editingId = id;
+  $('in-name').value = record.name;
+  $('in-exit').value = record.exitTime;
+  $('in-date').value = record.date;
+  $('in-reason').value = record.reason || '';
+
+  $('form-title').textContent = 'Editar lançamento';
+  $('submit-btn').textContent = 'Salvar edição';
+  $('editing-banner').style.display = 'flex';
+
+  $('tab-lancamentos').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function cancelEdit(){
+  editingId = null;
+  $('in-name').value = '';
+  $('in-exit').value = '';
+  $('in-date').value = '';
+  $('in-reason').value = '';
+  $('preview-hint').textContent = '';
+  $('form-title').textContent = 'Adicionar hora extra';
+  $('submit-btn').textContent = 'Adicionar';
+  $('editing-banner').style.display = 'none';
+}
+
+// Mostra em tempo real quanto vai contar como hora extra, antes de adicionar
+document.addEventListener('DOMContentLoaded', () => {
+  const exitInput = document.getElementById('in-exit');
+  if(exitInput){
+    exitInput.addEventListener('input', () => {
+      const hint = document.getElementById('preview-hint');
+      if(!exitInput.value){ hint.textContent = ''; return; }
+      const hours = computeOvertimeHours(exitInput.value);
+      if(hours <= 0){
+        hint.innerHTML = `Sem hora extra — saída antes ou igual às <strong>${BASE_TIME}</strong>.`;
+      } else {
+        hint.innerHTML = `Vai contar <strong>${formatHoursLabel(hours)}</strong> extra · <strong>${formatCurrency(hours*RATE_PER_HOUR)}</strong>`;
+      }
+    });
+  }
+});
+
+async function deleteRecord(id){
+  const ok = await showConfirm('Remover este lançamento? Essa ação não pode ser desfeita.');
+  if(!ok) return;
+
+  try{
+    const res = await apiFetch('/api/records/' + id, { method: 'DELETE' });
+    if(!res.ok){
+      showToast('Não foi possível remover o registro.', 'error');
+      return;
+    }
+    records = records.filter(r => r.id !== id);
+    if(editingId === id) cancelEdit();
+    render();
+    showToast('Registro removido.', 'success');
+  }catch(e){
+    if(e.message !== 'unauthenticated') showToast('Erro de conexão com o servidor TRAFOTRON.', 'error');
+  }
+}
+
+function formatDate(iso){
+  const [y,m,d] = iso.split('-');
+  return `${d}/${m}/${y}`;
+}
+
+function initials(name){
+  const parts = name.trim().split(/\s+/);
+  const first = parts[0]?.[0] || '';
+  const last = parts.length > 1 ? parts[parts.length-1][0] : '';
+  return (first + last).toUpperCase();
+}
+
+function getEmployeeSummary(){
+  const map = {};
+  // começa pelo cadastro, então todo funcionário aparece mesmo com 0h
+  employees.forEach(emp => {
+    const key = emp.name.trim().toLowerCase();
+    map[key] = { id: emp.id, name: emp.name.trim(), totalHours: 0, totalValue: 0, count: 0, lastDate: null };
+  });
+  records.forEach(r => {
+    const key = r.name.trim().toLowerCase();
+    if(!map[key]){
+      // segurança: registro cujo nome não está (mais) no cadastro
+      map[key] = { id: null, name: r.name.trim(), totalHours: 0, totalValue: 0, count: 0, lastDate: null };
+    }
+    map[key].totalHours += hoursFor(r);
+    map[key].totalValue += valueFor(r);
+    map[key].count += 1;
+    if(!map[key].lastDate || r.date > map[key].lastDate) map[key].lastDate = r.date;
+  });
+  return Object.values(map).sort((a,b) => b.totalValue - a.totalValue || a.name.localeCompare(b.name, 'pt-BR'));
+}
+
+async function loadEmployees(){
+  try{
+    const res = await apiFetch('/api/employees');
+    if(!res.ok) throw new Error('Falha ao buscar funcionários');
+    employees = await res.json();
+  }catch(e){
+    employees = [];
+    if(e.message !== 'unauthenticated') console.warn('Não foi possível carregar os funcionários cadastrados.', e);
+  }
+  renderEmployeeSelect();
+}
+
+function renderEmployeeSelect(){
+  const select = $('in-name');
+  if(!select) return;
+  const previous = select.value;
+  const sorted = [...employees].sort((a,b) => a.name.localeCompare(b.name, 'pt-BR'));
+  select.innerHTML = `<option value="">Selecione...</option>` +
+    sorted.map(emp => `<option value="${escapeAttr(emp.name)}">${escapeHtml(emp.name)}</option>`).join('');
+  if(sorted.some(emp => emp.name === previous)) select.value = previous;
+}
+
+// ---------- ABA CADASTRO ----------
+async function addEmployee(){
+  const input = $('in-employee-name');
+  const name = input.value.trim();
+  if(!name){
+    showToast('Digite o nome do funcionário.', 'error');
+    return;
+  }
+
+  try{
+    const res = await apiFetch('/api/employees', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name })
+    });
+    if(!res.ok){
+      const err = await res.json().catch(() => ({}));
+      showToast(err.error || 'Não foi possível cadastrar o funcionário.', 'error');
+      return;
+    }
+    input.value = '';
+    await loadEmployees();
+    renderCadastroList();
+    showToast('Funcionário cadastrado.', 'success');
+  }catch(e){
+    if(e.message !== 'unauthenticated') showToast('Erro de conexão com o servidor TRAFOTRON.', 'error');
+  }
+}
+
+async function removeEmployee(id, name){
+  const ok = await showConfirm(`Remover "${name}" do cadastro? Os lançamentos de hora extra já feitos em nome dele(a) continuam salvos no histórico.`);
+  if(!ok) return;
+
+  try{
+    const res = await apiFetch('/api/employees/' + id, { method: 'DELETE' });
+    if(!res.ok){
+      showToast('Não foi possível remover o funcionário.', 'error');
+      return;
+    }
+    await loadEmployees();
+    renderCadastroList();
+    showToast('Funcionário removido do cadastro.', 'success');
+  }catch(e){
+    if(e.message !== 'unauthenticated') showToast('Erro de conexão com o servidor TRAFOTRON.', 'error');
+  }
+}
+
+function renderCadastroList(){
+  const wrap = $('cadastro-wrap');
+  if(!wrap) return;
+
+  if(employees.length === 0){
+    wrap.innerHTML = `
+      <div class="empty-state">
+        <div class="hazard"></div>
+        <p>Nenhum funcionário cadastrado ainda. Use o formulário acima.</p>
+      </div>`;
+    return;
+  }
+
+  const sorted = [...employees].sort((a,b) => a.name.localeCompare(b.name, 'pt-BR'));
+  wrap.innerHTML = `
+    <div class="roster-list">
+      ${sorted.map(emp => `
+        <div class="roster-row">
+          <div class="roster-name">
+            <div class="avatar">${initials(emp.name)}</div>
+            ${escapeHtml(emp.name)}
+          </div>
+          <button class="del-btn" data-remove-id="${escapeAttr(emp.id)}" data-remove-name="${escapeAttr(emp.name)}">Remover</button>
+        </div>
+      `).join('')}
+    </div>
+  `;
+
+  wrap.querySelectorAll('[data-remove-id]').forEach(btn => {
+    btn.addEventListener('click', () => removeEmployee(btn.getAttribute('data-remove-id'), btn.getAttribute('data-remove-name')));
+  });
+}
+
+// ---------- ABA USUÁRIOS (contas de login) ----------
+async function loadUsers(){
+  const wrap = $('usuarios-wrap');
+  wrap.innerHTML = `<div class="loading-row"><span class="spinner"></span> Carregando usuários...</div>`;
+
+  try{
+    const res = await apiFetch('/api/users');
+    if(!res.ok) throw new Error('Falha ao buscar usuários');
+    users = await res.json();
+    renderUsersList();
+  }catch(e){
+    if(e.message === 'unauthenticated') return;
+    wrap.innerHTML = `<div class="empty-state"><p>Não foi possível carregar os usuários.</p></div>`;
+  }
+}
+
+function renderUsersList(){
+  const wrap = $('usuarios-wrap');
+  if(!wrap) return;
+
+  if(users.length === 0){
+    wrap.innerHTML = `<div class="empty-state"><p>Nenhum usuário encontrado.</p></div>`;
+    return;
+  }
+
+  const sorted = [...users].sort((a,b) => a.name.localeCompare(b.name, 'pt-BR'));
+  wrap.innerHTML = `
+    <div class="roster-list">
+      ${sorted.map(u => `
+        <div class="roster-row">
+          <div class="roster-name">
+            <div class="avatar">${initials(u.name)}</div>
+            <div>
+              ${escapeHtml(u.name)}
+              <div style="font-weight:400;color:var(--gray);font-size:12px;font-family:'IBM Plex Mono',monospace;">@${escapeHtml(u.username)}${currentSession && currentSession.username === u.username ? ' · você' : ''}</div>
+            </div>
+          </div>
+          <div class="row-actions">
+            <button class="btn-zerar-mini" data-reset-id="${escapeAttr(u.id)}" data-reset-name="${escapeAttr(u.name)}">Redefinir senha</button>
+            <button class="del-btn" data-remove-user-id="${escapeAttr(u.id)}" data-remove-user-name="${escapeAttr(u.name)}">Remover</button>
+          </div>
+        </div>
+      `).join('')}
+    </div>
+  `;
+
+  wrap.querySelectorAll('[data-reset-id]').forEach(btn => {
+    btn.addEventListener('click', () => resetUserPassword(btn.getAttribute('data-reset-id'), btn.getAttribute('data-reset-name')));
+  });
+  wrap.querySelectorAll('[data-remove-user-id]').forEach(btn => {
+    btn.addEventListener('click', () => removeUser(btn.getAttribute('data-remove-user-id'), btn.getAttribute('data-remove-user-name')));
+  });
+}
+
+async function addUser(){
+  const name = $('in-user-name').value.trim();
+  const username = $('in-user-username').value.trim();
+  const password = $('in-user-password').value;
+
+  if(!name || !username || !password){
+    showToast('Preencha nome, usuário e senha.', 'error');
+    return;
+  }
+  if(password.length < 4){
+    showToast('A senha precisa ter pelo menos 4 caracteres.', 'error');
+    return;
+  }
+
+  try{
+    const res = await apiFetch('/api/users', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, username, password })
+    });
+    if(!res.ok){
+      const err = await res.json().catch(() => ({}));
+      showToast(err.error || 'Não foi possível criar a conta.', 'error');
+      return;
+    }
+    $('in-user-name').value = '';
+    $('in-user-username').value = '';
+    $('in-user-password').value = '';
+    await loadUsers();
+    showToast('Conta criada.', 'success');
+  }catch(e){
+    if(e.message !== 'unauthenticated') showToast('Erro de conexão com o servidor TRAFOTRON.', 'error');
+  }
+}
+
+async function removeUser(id, name){
+  const ok = await showConfirm(`Remover a conta de "${name}"? Essa pessoa não vai mais conseguir entrar no sistema.`);
+  if(!ok) return;
+
+  try{
+    const res = await apiFetch('/api/users/' + id, { method: 'DELETE' });
+    if(!res.ok){
+      const err = await res.json().catch(() => ({}));
+      showToast(err.error || 'Não foi possível remover a conta.', 'error');
+      return;
+    }
+    await loadUsers();
+    showToast('Conta removida.', 'success');
+  }catch(e){
+    if(e.message !== 'unauthenticated') showToast('Erro de conexão com o servidor TRAFOTRON.', 'error');
+  }
+}
+
+async function resetUserPassword(id, name){
+  const ok = await showConfirm(`Redefinir a senha de "${name}"? Use isso quando a pessoa esquecer a senha dela.`);
+  if(!ok) return;
+
+  const newPassword = await showPrompt(`Digite a nova senha para ${name}:`, 'mínimo 4 caracteres');
+  if(!newPassword) return;
+  if(newPassword.length < 4){
+    showToast('A nova senha precisa ter pelo menos 4 caracteres.', 'error');
+    return;
+  }
+
+  try{
+    const res = await apiFetch('/api/users/' + id + '/reset-password', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ newPassword })
+    });
+    if(!res.ok){
+      const err = await res.json().catch(() => ({}));
+      showToast(err.error || 'Não foi possível redefinir a senha.', 'error');
+      return;
+    }
+    showToast(`Senha de ${name} redefinida.`, 'success');
+  }catch(e){
+    if(e.message !== 'unauthenticated') showToast('Erro de conexão com o servidor TRAFOTRON.', 'error');
+  }
+}
+
+async function changeOwnPassword(){
+  const currentPassword = $('in-current-password').value;
+  const newPassword = $('in-new-password').value;
+
+  if(!currentPassword || !newPassword){
+    showToast('Preencha a senha atual e a nova senha.', 'error');
+    return;
+  }
+  if(newPassword.length < 4){
+    showToast('A nova senha precisa ter pelo menos 4 caracteres.', 'error');
+    return;
+  }
+
+  try{
+    const res = await apiFetch('/api/users/me/password', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ currentPassword, newPassword })
+    });
+    if(!res.ok){
+      const err = await res.json().catch(() => ({}));
+      showToast(err.error || 'Não foi possível trocar a senha.', 'error');
+      return;
+    }
+    $('in-current-password').value = '';
+    $('in-new-password').value = '';
+    showToast('Senha alterada com sucesso.', 'success');
+  }catch(e){
+    if(e.message !== 'unauthenticated') showToast('Erro de conexão com o servidor TRAFOTRON.', 'error');
+  }
+}
+
+function onRecordsSearch(){
+  recordsSearchQuery = $('records-search').value.trim().toLowerCase();
+  recordsPage = 1;
+  render();
+}
+
+function goToRecordsPage(page){
+  recordsPage = page;
+  render();
+}
+
+function render(){
+  $('stat-count').textContent = records.length;
+  const totalHours = records.reduce((s,r)=>s+hoursFor(r),0);
+  const totalOwed = records.reduce((s,r)=>s+valueFor(r),0);
+  $('stat-hours').textContent = (Math.round(totalHours*100)/100) + 'h';
+  $('stat-people').textContent = new Set(records.map(r=>r.name.toLowerCase())).size;
+  $('stat-owed').textContent = formatCurrency(totalOwed);
+
+  // meter: 12 segments, lit proportionally against a 100h reference scale
+  const meter = $('stat-meter');
+  const segCount = 12;
+  const litCount = Math.min(segCount, Math.round((totalHours / 100) * segCount));
+  meter.innerHTML = Array.from({length:segCount}).map((_,i) =>
+    `<div class="meter-seg ${i < litCount ? 'on' : ''}"></div>`
+  ).join('');
+
+  const wrap = $('table-wrap');
+  const pagWrap = $('records-pagination');
+
+  const filtered = recordsSearchQuery
+    ? records.filter(r => r.name.toLowerCase().includes(recordsSearchQuery))
+    : records;
+
+  if(records.length === 0){
+    wrap.innerHTML = `
+      <div class="empty-state">
+        <div class="hazard"></div>
+        <p>Nenhum registro ainda. Adicione a primeira hora extra acima.</p>
+      </div>`;
+    pagWrap.style.display = 'none';
+  } else if(filtered.length === 0){
+    wrap.innerHTML = `
+      <div class="empty-state">
+        <p>Nenhum registro encontrado para "${escapeHtml(recordsSearchQuery)}".</p>
+      </div>`;
+    pagWrap.style.display = 'none';
+  } else {
+    const sorted = [...filtered].sort((a,b)=> b.date.localeCompare(a.date));
+    const totalPages = Math.max(1, Math.ceil(sorted.length / RECORDS_PER_PAGE));
+    if(recordsPage > totalPages) recordsPage = totalPages;
+    const startIdx = (recordsPage - 1) * RECORDS_PER_PAGE;
+    const pageRecords = sorted.slice(startIdx, startIdx + RECORDS_PER_PAGE);
+
+    let rows = pageRecords.map(r => `
+      <tr>
+        <td>${escapeHtml(r.name)}</td>
+        <td class="mono">${r.exitTime}</td>
+        <td><span class="hours-badge">${formatHoursLabel(hoursFor(r))}</span></td>
+        <td class="mono">${formatCurrency(valueFor(r))}</td>
+        <td class="mono">${formatDate(r.date)}</td>
+        <td class="reason-cell" title="${escapeAttr(r.reason || '')}">${r.reason ? escapeHtml(r.reason) : '—'}</td>
+        <td>
+          <div class="row-actions">
+            <button class="edit-btn" onclick="editRecord('${r.id}')">Editar</button>
+            <button class="del-btn" onclick="deleteRecord('${r.id}')">Remover</button>
+          </div>
+        </td>
+      </tr>
+    `).join('');
+
+    wrap.innerHTML = `
+      <div class="panel-body" style="padding:0;">
+        <div style="overflow-x:auto;">
+          <table>
+            <thead>
+              <tr>
+                <th>Funcionário</th>
+                <th>Saída</th>
+                <th>Hora extra</th>
+                <th>Valor devido</th>
+                <th>Data</th>
+                <th>Motivo</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>${rows}</tbody>
+          </table>
+        </div>
+      </div>
+    `;
+
+    if(totalPages > 1){
+      pagWrap.style.display = 'flex';
+      pagWrap.innerHTML = `
+        <button ${recordsPage <= 1 ? 'disabled' : ''} onclick="goToRecordsPage(${recordsPage - 1})">← Anterior</button>
+        <span>Página ${recordsPage} de ${totalPages} · ${sorted.length} registro${sorted.length === 1 ? '' : 's'}</span>
+        <button ${recordsPage >= totalPages ? 'disabled' : ''} onclick="goToRecordsPage(${recordsPage + 1})">Próxima →</button>
+      `;
+    } else {
+      pagWrap.style.display = 'none';
+    }
+  }
+
+  renderEmployees();
+}
+
+function resetFuncionariosHeader(){
+  $('funcionarios-title').textContent = 'Registro de funcionários';
+  $('funcionarios-hint').style.display = 'none';
+  $('funcionarios-hint').innerHTML = '';
+  $('employee-search-wrap').style.display = '';
+}
+
+function renderEmployees(){
+  const wrap = $('employee-wrap');
+  if(!wrap) return;
+
+  resetFuncionariosHeader();
+
+  const query = ($('employee-search')?.value || '').trim().toLowerCase();
+  const summary = getEmployeeSummary();
+  const filtered = query
+    ? summary.filter(e => e.name.toLowerCase().includes(query))
+    : summary;
+
+  if(summary.length === 0){
+    wrap.innerHTML = `
+      <div class="empty-state">
+        <div class="hazard"></div>
+        <p>Nenhum funcionário cadastrado ainda. Cadastre o primeiro na aba Cadastro.</p>
+      </div>`;
+    return;
+  }
+
+  if(filtered.length === 0){
+    wrap.innerHTML = `
+      <div class="empty-state">
+        <p>Nenhum funcionário encontrado para "${escapeHtml(query)}".</p>
+      </div>`;
+    return;
+  }
+
+  const maxValue = Math.max(...summary.map(e => e.totalValue), 1);
+
+  wrap.innerHTML = `
+    <div class="employee-grid">
+      ${filtered.map(e => `
+        <div class="employee-card">
+          <div class="avatar">${initials(e.name)}</div>
+          <div class="employee-info">
+            <p class="employee-name employee-name-clickable" data-open-employee="${escapeAttr(e.name)}">${escapeHtml(e.name)}</p>
+            <div class="employee-meta">
+              <span><strong>${formatHoursLabel(e.totalHours)}</strong> extras</span>
+              <span><strong>${e.count}</strong> registro${e.count === 1 ? '' : 's'} pendente${e.count === 1 ? '' : 's'}</span>
+              <span>último: <strong>${e.lastDate ? formatDate(e.lastDate) : '—'}</strong></span>
+            </div>
+            <div class="employee-meta" style="margin-top:-4px;">
+              <span>deve-se: <strong style="color:var(--red-600);">${formatCurrency(e.totalValue)}</strong></span>
+            </div>
+            <div class="rank-bar-track">
+              <div class="rank-bar-fill" style="width:${(e.totalValue / maxValue) * 100}%"></div>
+            </div>
+            <div style="display:flex; gap:8px; margin-top:12px; flex-wrap:wrap;">
+              <button class="btn-zerar-mini" data-open-employee="${escapeAttr(e.name)}">Ver horas por mês</button>
+              ${e.count > 0 ? `<button class="btn-zerar-mini" data-zerar-name="${escapeAttr(e.name)}">Zerar horas pagas</button>` : ''}
+            </div>
+          </div>
+        </div>
+      `).join('')}
+    </div>
+  `;
+
+  wrap.querySelectorAll('[data-zerar-name]').forEach(btn => {
+    btn.addEventListener('click', (ev) => {
+      ev.stopPropagation();
+      zerarHoras(btn.getAttribute('data-zerar-name'));
+    });
+  });
+
+  wrap.querySelectorAll('[data-open-employee]').forEach(el => {
+    el.addEventListener('click', (ev) => {
+      ev.stopPropagation();
+      openEmployeeDetail(el.getAttribute('data-open-employee'));
+    });
+  });
+}
+
+async function openEmployeeDetail(name){
+  const wrap = $('employee-wrap');
+  $('employee-search-wrap').style.display = 'none';
+  $('funcionarios-title').textContent = name;
+  $('funcionarios-hint').style.display = 'block';
+  $('funcionarios-hint').innerHTML = `<button class="back-link" onclick="renderEmployees()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+      Voltar para todos os funcionários
+    </button>`;
+  wrap.innerHTML = `<div class="loading-row"><span class="spinner"></span> Carregando horas de ${escapeHtml(name)}...</div>`;
+
+  try{
+    const res = await apiFetch('/api/employee-records?name=' + encodeURIComponent(name));
+    if(!res.ok) throw new Error('Falha ao buscar histórico do funcionário');
+    const empRecords = await res.json();
+    renderEmployeeDetail(name, empRecords);
+  }catch(e){
+    if(e.message === 'unauthenticated') return;
+    wrap.innerHTML = `<div class="empty-state"><p>Não foi possível carregar o histórico deste funcionário.</p></div>`;
+  }
+}
+
+function renderEmployeeDetail(name, empRecords){
+  const wrap = $('employee-wrap');
+
+  if(empRecords.length === 0){
+    wrap.innerHTML = `
+      <div class="empty-state">
+        <div class="hazard"></div>
+        <p>${escapeHtml(name)} ainda não tem nenhuma hora extra lançada.</p>
+      </div>`;
+    return;
+  }
+
+  // agrupa por mês ('YYYY-MM'), do mais recente para o mais antigo
+  const groups = {};
+  empRecords.forEach(r => {
+    const monthKey = r.date.slice(0, 7);
+    if(!groups[monthKey]) groups[monthKey] = [];
+    groups[monthKey].push(r);
+  });
+  const monthKeys = Object.keys(groups).sort((a,b) => b.localeCompare(a));
+
+  const totalHours = empRecords.reduce((s,r)=>s+hoursFor(r),0);
+  const totalValue = empRecords.reduce((s,r)=>s+valueFor(r),0);
+  const pendingValue = empRecords.filter(r=>!r.paid).reduce((s,r)=>s+valueFor(r),0);
+  const thisMonth = currentMonthKey();
+
+  const summaryHtml = `
+    <div class="summary-row" style="margin-bottom:24px;">
+      <div class="stat-card">
+        <div class="stat-label">Total de registros</div>
+        <div class="stat-value mono">${empRecords.length}</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Horas extras (histórico)</div>
+        <div class="stat-value mono">${Math.round(totalHours*100)/100}h</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Total já gerado</div>
+        <div class="stat-value mono">${formatCurrency(totalValue)}</div>
+      </div>
+      <div class="stat-card highlight">
+        <div class="stat-label">Ainda pendente</div>
+        <div class="stat-value mono">${formatCurrency(pendingValue)}</div>
+      </div>
+    </div>
+  `;
+
+  const groupsHtml = monthKeys.map(monthKey => {
+    const monthRecords = [...groups[monthKey]].sort((a,b) => b.date.localeCompare(a.date));
+    const monthHours = monthRecords.reduce((s,r)=>s+hoursFor(r),0);
+    const monthValue = monthRecords.reduce((s,r)=>s+valueFor(r),0);
+    const rows = monthRecords.map(r => `
+      <tr>
+        <td class="mono">${formatDate(r.date)}</td>
+        <td class="mono">${r.exitTime}</td>
+        <td><span class="hours-badge">${formatHoursLabel(hoursFor(r))}</span></td>
+        <td class="mono">${formatCurrency(valueFor(r))}</td>
+        <td><span class="status-badge ${r.paid ? 'paid' : 'pending'}">${r.paid ? 'Pago' : 'Pendente'}</span></td>
+      </tr>
+    `).join('');
+
+    return `
+      <div class="month-group">
+        <div class="month-group-header">
+          <h3>${monthLabel(monthKey)}${monthKey === thisMonth ? ' · mês atual' : ''}</h3>
+          <span class="month-group-total"><strong>${formatHoursLabel(monthHours)}</strong> · <strong>${formatCurrency(monthValue)}</strong></span>
+        </div>
+        <div style="overflow-x:auto;">
+          <table>
+            <thead>
+              <tr>
+                <th>Data</th>
+                <th>Saída</th>
+                <th>Hora extra</th>
+                <th>Valor</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody>${rows}</tbody>
+          </table>
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  wrap.innerHTML = summaryHtml + groupsHtml;
+}
+
+function exportExcel(){
+  if(records.length === 0){
+    showToast('Não há registros para exportar ainda.', 'error');
+    return;
+  }
+
+  const sortedRecords = [...records].sort((a,b) => b.date.localeCompare(a.date));
+  const recordsSheet = sortedRecords.map(r => ({
+    'Funcionário': r.name,
+    'Horário de Saída': r.exitTime,
+    'Hora Extra': formatHoursLabel(hoursFor(r)),
+    'Valor Devido (R$)': Math.round(valueFor(r)*100)/100,
+    'Data': formatDate(r.date),
+    'Motivo': r.reason || ''
+  }));
+
+  const summary = getEmployeeSummary();
+  const summarySheet = summary.map(e => ({
+    'Funcionário': e.name,
+    'Total de Horas': formatHoursLabel(e.totalHours),
+    'Total Devido (R$)': Math.round(e.totalValue*100)/100,
+    'Qtd. Registros': e.count,
+    'Último Registro': e.lastDate ? formatDate(e.lastDate) : '—'
+  }));
+
+  const wb = XLSX.utils.book_new();
+  const ws1 = XLSX.utils.json_to_sheet(recordsSheet);
+  const ws2 = XLSX.utils.json_to_sheet(summarySheet);
+  ws1['!cols'] = [{wch:28},{wch:14},{wch:12},{wch:16},{wch:12},{wch:28}];
+  ws2['!cols'] = [{wch:28},{wch:14},{wch:16},{wch:14},{wch:16}];
+  XLSX.utils.book_append_sheet(wb, ws1, 'Lançamentos');
+  XLSX.utils.book_append_sheet(wb, ws2, 'Resumo por Funcionário');
+
+  const today = new Date().toISOString().slice(0,10);
+  XLSX.writeFile(wb, `trafotron-horas-extras-${today}.xlsx`);
+}
+
+function escapeHtml(str){
+  const div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
+}
+
+// escapa texto para uso dentro de atributos HTML (aspas simples/duplas incluídas) —
+// necessário para nomes de funcionários que podem conter aspas, ex: "D'Ávila"
+function escapeAttr(str){
+  return String(str)
+    .replace(/&/g,'&amp;')
+    .replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;')
+    .replace(/'/g,'&#39;');
+}
+
+// ---------- ZERAR HORAS (marcar como pago) ----------
+async function zerarHoras(name){
+  const msg = name
+    ? `Zerar as horas de "${name}"? Isso marca as horas pendentes dele(a) como pagas. Os registros continuam salvos no histórico por mês.`
+    : 'Zerar TODAS as horas pendentes? Isso marca todas como pagas. Os registros continuam salvos no histórico por mês.';
+
+  const ok = await showConfirm(msg);
+  if(!ok) return;
+
+  try{
+    const res = await apiFetch('/api/records/zerar-horas', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(name ? { name } : {})
+    });
+    if(!res.ok){
+      const err = await res.json().catch(() => ({}));
+      showToast(err.error || 'Não foi possível zerar as horas.', 'error');
+      return;
+    }
+    const data = await res.json();
+    if(data.zeroedCount === 0){
+      showToast('Não havia horas pendentes para zerar.', 'error');
+      return;
+    }
+    await loadRecords();
+    showToast(`${data.zeroedCount} registro(s) marcado(s) como pago(s).`, 'success');
+  }catch(e){
+    if(e.message !== 'unauthenticated') showToast('Erro de conexão com o servidor TRAFOTRON.', 'error');
+  }
+}
+
+// ---------- ABA MESES ----------
+const MONTH_NAMES_PT = ['janeiro','fevereiro','março','abril','maio','junho',
+  'julho','agosto','setembro','outubro','novembro','dezembro'];
+
+function monthLabel(monthKey){
+  // monthKey no formato 'YYYY-MM'
+  const [y, m] = monthKey.split('-').map(Number);
+  return `${MONTH_NAMES_PT[m-1]} de ${y}`;
+}
+
+function currentMonthKey(){
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+}
+
+async function loadMesesList(){
+  const wrap = $('meses-wrap');
+  wrap.innerHTML = `<div class="loading-row"><span class="spinner"></span> Carregando meses...</div>`;
+
+  // volta ao cabeçalho padrão da aba (caso estivesse num mês específico)
+  $('meses-title').textContent = 'Histórico por mês';
+  $('meses-hint').textContent = 'Todo registro fica salvo aqui, mesmo depois de zerar as horas.';
+
+  try{
+    const res = await apiFetch('/api/meses');
+    if(!res.ok) throw new Error('Falha ao buscar meses');
+    const meses = await res.json();
+
+    if(meses.length === 0){
+      wrap.innerHTML = `
+        <div class="empty-state">
+          <div class="hazard"></div>
+          <p>Nenhum mês com registros ainda.</p>
+        </div>`;
+      return;
+    }
+
+    const thisMonth = currentMonthKey();
+    wrap.innerHTML = `
+      <div class="month-grid">
+        ${meses.map(mo => `
+          <button class="month-card" onclick="openMonth('${mo.month}')">
+            <p class="month-name">${monthLabel(mo.month)}${mo.month === thisMonth ? ' · atual' : ''}</p>
+            <div class="month-meta">
+              <span><strong>${mo.total}</strong> registro${mo.total > 1 ? 's' : ''}</span>
+            </div>
+            <span class="month-pending-tag ${mo.pending === 0 ? 'none' : ''}">
+              ${mo.pending === 0 ? 'Tudo pago' : `${mo.pending} pendente${mo.pending > 1 ? 's' : ''}`}
+            </span>
+          </button>
+        `).join('')}
+      </div>
+    `;
+  }catch(e){
+    if(e.message === 'unauthenticated') return;
+    wrap.innerHTML = `<div class="empty-state"><p>Não foi possível carregar os meses. Verifique a conexão com o servidor.</p></div>`;
+  }
+}
+
+async function openMonth(monthKey){
+  const wrap = $('meses-wrap');
+  wrap.innerHTML = `<div class="loading-row"><span class="spinner"></span> Carregando registros de ${monthLabel(monthKey)}...</div>`;
+  $('meses-title').textContent = monthLabel(monthKey).replace(/^./, c => c.toUpperCase());
+  $('meses-hint').innerHTML = `<button class="back-link" onclick="loadMesesList()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+      Voltar para todos os meses
+    </button>`;
+
+  try{
+    const res = await apiFetch('/api/meses/' + monthKey);
+    if(!res.ok) throw new Error('Falha ao buscar registros do mês');
+    const monthRecords = await res.json();
+    renderMonthDetail(monthKey, monthRecords);
+  }catch(e){
+    if(e.message === 'unauthenticated') return;
+    wrap.innerHTML = `<div class="empty-state"><p>Não foi possível carregar os registros deste mês.</p></div>`;
+  }
+}
+
+function renderMonthDetail(monthKey, monthRecords){
+  const wrap = $('meses-wrap');
+
+  if(monthRecords.length === 0){
+    wrap.innerHTML = `<div class="empty-state"><p>Nenhum registro neste mês.</p></div>`;
+    return;
+  }
+
+  const totalHours = monthRecords.reduce((s,r)=>s+hoursFor(r),0);
+  const totalValue = monthRecords.reduce((s,r)=>s+valueFor(r),0);
+  const pendingValue = monthRecords.filter(r=>!r.paid).reduce((s,r)=>s+valueFor(r),0);
+
+  const sorted = [...monthRecords].sort((a,b)=> b.date.localeCompare(a.date));
+  const rows = sorted.map(r => `
+    <tr>
+      <td>${escapeHtml(r.name)}</td>
+      <td class="mono">${r.exitTime}</td>
+      <td><span class="hours-badge">${formatHoursLabel(hoursFor(r))}</span></td>
+      <td class="mono">${formatCurrency(valueFor(r))}</td>
+      <td class="mono">${formatDate(r.date)}</td>
+      <td><span class="status-badge ${r.paid ? 'paid' : 'pending'}">${r.paid ? 'Pago' : 'Pendente'}</span></td>
+    </tr>
+  `).join('');
+
+  wrap.innerHTML = `
+    <div style="display:flex; justify-content:flex-end; margin-bottom:14px;">
+      <button class="btn btn-export" style="padding:9px 16px;font-size:12px;" onclick='exportMonthExcel(${JSON.stringify(monthKey)})'>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M5 21h14"/></svg>
+        Baixar planilha deste mês
+      </button>
+    </div>
+    <div class="summary-row" style="margin-bottom:20px;">
+      <div class="stat-card">
+        <div class="stat-label">Registros no mês</div>
+        <div class="stat-value mono">${monthRecords.length}</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Horas extras no mês</div>
+        <div class="stat-value mono">${Math.round(totalHours*100)/100}h</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Total do mês</div>
+        <div class="stat-value mono">${formatCurrency(totalValue)}</div>
+      </div>
+      <div class="stat-card highlight">
+        <div class="stat-label">Ainda pendente</div>
+        <div class="stat-value mono">${formatCurrency(pendingValue)}</div>
+      </div>
+    </div>
+    <div style="overflow-x:auto;">
+      <table>
+        <thead>
+          <tr>
+            <th>Funcionário</th>
+            <th>Saída</th>
+            <th>Hora extra</th>
+            <th>Valor</th>
+            <th>Data</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>
+  `;
+
+  window.__lastMonthRecords = window.__lastMonthRecords || {};
+  window.__lastMonthRecords[monthKey] = monthRecords;
+}
+
+function exportMonthExcel(monthKey){
+  const monthRecords = (window.__lastMonthRecords || {})[monthKey];
+  if(!monthRecords || monthRecords.length === 0){
+    showToast('Não há registros para exportar neste mês.', 'error');
+    return;
+  }
+
+  const sortedRecords = [...monthRecords].sort((a,b) => b.date.localeCompare(a.date));
+  const sheet = sortedRecords.map(r => ({
+    'Funcionário': r.name,
+    'Horário de Saída': r.exitTime,
+    'Hora Extra': formatHoursLabel(hoursFor(r)),
+    'Valor (R$)': Math.round(valueFor(r)*100)/100,
+    'Data': formatDate(r.date),
+    'Motivo': r.reason || '',
+    'Status': r.paid ? 'Pago' : 'Pendente'
+  }));
+
+  const wb = XLSX.utils.book_new();
+  const ws = XLSX.utils.json_to_sheet(sheet);
+  ws['!cols'] = [{wch:28},{wch:14},{wch:12},{wch:14},{wch:12},{wch:28},{wch:12}];
+  XLSX.utils.book_append_sheet(wb, ws, monthLabel(monthKey).slice(0,31));
+  XLSX.writeFile(wb, `trafotron-horas-${monthKey}.xlsx`);
+}
+
+// ---------- ABA ATIVIDADE (log de auditoria) ----------
+const ACTION_LABELS = {
+  login: 'Entrou no sistema',
+  logout: 'Saiu do sistema',
+  lancamento_criado: 'Lançamento criado',
+  lancamento_editado: 'Lançamento editado',
+  lancamento_removido: 'Lançamento removido',
+  horas_zeradas: 'Horas zeradas (pagas)',
+  funcionario_cadastrado: 'Funcionário cadastrado',
+  funcionario_removido: 'Funcionário removido do cadastro',
+  configuracao_alterada: 'Configuração alterada'
+};
+
+function formatDateTime(iso){
+  const d = new Date(iso);
+  return d.toLocaleString('pt-BR', { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' });
+}
+
+async function loadAuditLog(){
+  const wrap = $('atividade-wrap');
+  wrap.innerHTML = `<div class="loading-row"><span class="spinner"></span> Carregando atividade recente...</div>`;
+
+  try{
+    const res = await apiFetch('/api/audit-log?limit=150');
+    if(!res.ok) throw new Error('Falha ao buscar atividade');
+    const entries = await res.json();
+    renderAuditLog(entries);
+  }catch(e){
+    if(e.message === 'unauthenticated') return;
+    wrap.innerHTML = `<div class="empty-state"><p>Não foi possível carregar o histórico de atividade.</p></div>`;
+  }
+}
+
+function renderAuditLog(entries){
+  const wrap = $('atividade-wrap');
+
+  if(entries.length === 0){
+    wrap.innerHTML = `
+      <div class="empty-state">
+        <div class="hazard"></div>
+        <p>Nenhuma atividade registrada ainda.</p>
+      </div>`;
+    return;
+  }
+
+  wrap.innerHTML = `
+    <div class="audit-list">
+      ${entries.map(e => `
+        <div class="audit-row">
+          <div class="audit-dot"></div>
+          <div class="audit-main">
+            <div class="audit-action">${escapeHtml(ACTION_LABELS[e.action] || e.action)}</div>
+            ${e.details ? `<div class="audit-details">${escapeHtml(e.details)}</div>` : ''}
+          </div>
+          <div class="audit-meta">
+            <span class="audit-actor">${escapeHtml(e.actor)}</span>
+            ${formatDateTime(e.createdAt)}
+          </div>
+        </div>
+      `).join('')}
+    </div>
+  `;
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  // volta direto pro app se a sessão do navegador ainda for válida
+  checkSession();
+
+  const empInput = document.getElementById('in-employee-name');
+  if(empInput){
+    empInput.addEventListener('keydown', e => { if(e.key === 'Enter') addEmployee(); });
+  }
+
+  const pwdInput = document.getElementById('pwd');
+  const nameInput = document.getElementById('operator-name');
+  if(pwdInput) pwdInput.addEventListener('keydown', e => { if(e.key === 'Enter') tryLogin(); });
+  if(nameInput) nameInput.addEventListener('keydown', e => { if(e.key === 'Enter') pwdInput.focus(); });
+});
+</script>
+
+</body>
+</html>
